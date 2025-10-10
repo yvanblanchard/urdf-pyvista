@@ -16,6 +16,12 @@ A Python library for loading, visualizing, and interacting with URDF (Unified Ro
 
 ## Installation
 
+### From pip
+```bash
+pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ urdf-pyvista
+```
+
+### From sources
 ```bash
 pip install -e .
 ```
