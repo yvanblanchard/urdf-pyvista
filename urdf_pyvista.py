@@ -844,6 +844,70 @@ class URDF:
         """Clear the validation error log."""
         self._errors = []
 
+    def get_model_bounds(self):
+        """Calculate the bounding box of the entire URDF model.
+        
+        Returns:
+            np.ndarray: Array containing [x_min, x_max, y_min, y_max, z_min, z_max]
+                       representing the extrema coordinates of the model.
+        """
+        if self._scene is None:
+            raise ValueError(
+                "No scene available. Use build_scene_graph=True and load_meshes=True during loading."
+            )
+        
+        if not hasattr(self._scene, 'geometry') or len(self._scene.geometry) == 0:
+            # Return default bounds if no geometry is available
+            return np.array([-1.0, 1.0, -1.0, 1.0, -1.0, 1.0])
+        
+        # Initialize bounds with extreme values
+        x_min = y_min = z_min = float('inf')
+        x_max = y_max = z_max = float('-inf')
+        
+        # Iterate through all geometry in the scene
+        for name, geom in self._scene.geometry.items():
+            try:
+                # Get the mesh object
+                if hasattr(geom, 'mesh'):
+                    mesh = geom.mesh
+                else:
+                    mesh = geom
+                
+                # Get vertices
+                if hasattr(mesh, 'vertices') and len(mesh.vertices) > 0:
+                    vertices = mesh.vertices
+                    
+                    # Get transform for this geometry from scene graph
+                    if hasattr(self._scene, 'graph') and self._scene.graph is not None:
+                        if name in self._scene.graph.nodes:
+                            # Get world transform for this geometry
+                            transform_matrix = self._scene.graph.get(frame_to=name)[0]
+                            
+                            # Apply transformation to vertices
+                            vertices_homogeneous = np.column_stack([vertices, np.ones(len(vertices))])
+                            transformed_vertices = (transform_matrix @ vertices_homogeneous.T).T[:, :3]
+                            vertices = transformed_vertices
+                    
+                    # Update bounds with vertices
+                    if len(vertices) > 0:
+                        x_min = min(x_min, np.min(vertices[:, 0]))
+                        x_max = max(x_max, np.max(vertices[:, 0]))
+                        y_min = min(y_min, np.min(vertices[:, 1]))
+                        y_max = max(y_max, np.max(vertices[:, 1]))
+                        z_min = min(z_min, np.min(vertices[:, 2]))
+                        z_max = max(z_max, np.max(vertices[:, 2]))
+                        
+            except Exception as e:
+                _logger.warning(f"Could not process bounds for geometry {name}: {e}")
+                continue
+        
+        # Check if any valid bounds were found
+        if x_min == float('inf'):
+            # No valid geometry found, return default bounds
+            return np.array([-1.0, 1.0, -1.0, 1.0, -1.0, 1.0])
+        
+        return np.array([x_min, x_max, y_min, y_max, z_min, z_max])
+
     def _generate_link_colors(self, num_links):
         """Generate distinct colors for each link.
         
@@ -963,7 +1027,7 @@ class URDF:
             except Exception as e:
                 print(f"Failed to update mesh {name}: {e}")
 
-    def show(self, collision_geometry=False, notebook=False, window_size=(1024, 768), color_by_link=False, sliders=False):
+    def show(self, collision_geometry=False, notebook=False, window_size=(1024, 768), color_by_link=False, sliders=False, grid=True):
         """Open a PyVista viewer displaying the URDF model.
 
         Args:
@@ -972,6 +1036,8 @@ class URDF:
             notebook (bool, optional): Whether to display in jupyter notebook. Defaults to False.
             window_size (tuple, optional): Window size for the viewer. Defaults to (1024, 768).
             color_by_link (bool, optional): Whether to color each link with a different color. Defaults to False.
+            sliders (bool, optional): Whether to add sliders for each joint to manipulate the configuration. Defaults to False.
+            grid (bool, optional): Whether to add a grid at the ZX plane. Defaults to
         """
         scene = self._scene_collision if collision_geometry else self._scene
         if scene is None:
@@ -1112,8 +1178,11 @@ class URDF:
         plotter.add_axes()
         
         # Add grid at ZX plane using PyVista Plane with edges (make it visible with low opacity)
-        grid_plane = pv.Plane(center=(0, 0, 0), direction=(0, 1, 0), i_size=5000, j_size=5000, i_resolution=10, j_resolution=10)
-        plotter.add_mesh(grid_plane, show_edges=True, opacity=0.1, edge_color='black', line_width=1, name='grid_plane')
+        if grid:
+            # define size from model bounding box
+            model_bounds = self.get_model_bounds()
+            grid_plane = pv.Plane(center=(0, 0, 0), direction=(0, 1, 0), i_size=model_bounds[1] - model_bounds[0], j_size=model_bounds[5] - model_bounds[4], i_resolution=10, j_resolution=10)
+            plotter.add_mesh(grid_plane, show_edges=True, opacity=0.1, edge_color='black', line_width=1, name='grid_plane')
         
         # Add joint sliders if there are actuated joints
         if self.num_actuated_joints > 0 and sliders:
