@@ -1027,7 +1027,7 @@ class URDF:
             except Exception as e:
                 print(f"Failed to update mesh {name}: {e}")
 
-    def show(self, collision_geometry=False, notebook=False, window_size=(1024, 768), color_by_link=False, sliders=False, grid=True):
+    def show(self, collision_geometry=False, notebook=False, window_size=(1024, 768), color_by_link=False, sliders=False, grid=True, viewup_vector=[0, 0, 1]):
         """Open a PyVista viewer displaying the URDF model.
 
         Args:
@@ -1037,7 +1037,8 @@ class URDF:
             window_size (tuple, optional): Window size for the viewer. Defaults to (1024, 768).
             color_by_link (bool, optional): Whether to color each link with a different color. Defaults to False.
             sliders (bool, optional): Whether to add sliders for each joint to manipulate the configuration. Defaults to False.
-            grid (bool, optional): Whether to add a grid at the ZX plane. Defaults to
+            grid (bool, optional): Whether to add a grid at the ZX plane. Defaults to True.
+            viewup_vector (list, optional): The view up vector for the plotter. Defaults to [0, 0, 1].
         """
         scene = self._scene_collision if collision_geometry else self._scene
         if scene is None:
@@ -1181,7 +1182,35 @@ class URDF:
         if grid:
             # define size from model bounding box
             model_bounds = self.get_model_bounds()
-            grid_plane = pv.Plane(center=(0, 0, 0), direction=(0, 1, 0), i_size=model_bounds[1] - model_bounds[0], j_size=model_bounds[5] - model_bounds[4], i_resolution=10, j_resolution=10)
+            
+            # Calculate grid size and position based on viewup_vector
+            # Make grid 2x larger than model bounds for better visual context
+            grid_scale = 2.0
+            
+            # Determine plane orientation and size based on viewup_vector
+            if np.allclose(viewup_vector, [0, 1, 0]):  # Y-up: grid in XZ plane
+                i_size = (model_bounds[1] - model_bounds[0]) * grid_scale  # X dimension
+                j_size = (model_bounds[5] - model_bounds[4]) * grid_scale  # Z dimension
+                center_x = (model_bounds[1] + model_bounds[0]) / 2
+                center_y = model_bounds[2]  # Position at minimum Y (bottom of model)
+                center_z = (model_bounds[5] + model_bounds[4]) / 2
+                grid_center = (center_x, center_y, center_z)
+            elif np.allclose(viewup_vector, [0, 0, 1]):  # Z-up: grid in XY plane
+                i_size = (model_bounds[1] - model_bounds[0]) * grid_scale  # X dimension
+                j_size = (model_bounds[3] - model_bounds[2]) * grid_scale  # Y dimension
+                center_x = (model_bounds[1] + model_bounds[0]) / 2
+                center_y = (model_bounds[3] + model_bounds[2]) / 2
+                center_z = model_bounds[4]  # Position at minimum Z (bottom of model)
+                grid_center = (center_x, center_y, center_z)
+            else:  # Other orientations: use XZ plane as default
+                i_size = (model_bounds[1] - model_bounds[0]) * grid_scale  # X dimension
+                j_size = (model_bounds[5] - model_bounds[4]) * grid_scale  # Z dimension
+                center_x = (model_bounds[1] + model_bounds[0]) / 2
+                center_y = 0
+                center_z = (model_bounds[5] + model_bounds[4]) / 2
+                grid_center = (center_x, center_y, center_z)
+            
+            grid_plane = pv.Plane(center=grid_center, direction=viewup_vector, i_size=i_size, j_size=j_size, i_resolution=10, j_resolution=10)
             plotter.add_mesh(grid_plane, show_edges=True, opacity=0.1, edge_color='black', line_width=1, name='grid_plane')
         
         # Add joint sliders if there are actuated joints
@@ -1332,7 +1361,7 @@ class URDF:
                     color_off='lightgray',
                     background_color='white'
                 )
-                print(f"Added reset checkbox button at position Y={button_y:.3f}")
+               
             except Exception as e:
                 print(f"Could not add reset button: {e}")
                 # Add text instruction instead
@@ -1342,7 +1371,9 @@ class URDF:
                     font_size=10,
                     name='reset_instruction'
                 )
-                print("Added keyboard shortcut instruction: Press 'r' to reset sliders")
+        
+        # viewup
+        plotter.set_viewup(viewup_vector)
         
         # Show the plot
         try:
