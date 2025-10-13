@@ -1,4 +1,5 @@
 from urdf_pyvista import URDF
+import numpy as np
 
 # Load the URDF robot model
 robot = URDF.load('winder_machine/winder_machine.urdf')
@@ -13,12 +14,13 @@ print(f"Degrees of freedom: {robot.num_dofs}")
 print("\n1. Setting joint values using dictionary (joint name -> value):")
 print(f"   Joint order: {robot.actuated_joint_names}")
 
-# Set specific values for each actuated joint (in mm and degrees)
+# Set specific values for each actuated joint
+# Note: Prismatic joints use linear units (mm), revolute joints use RADIANS
 joint_values_dict = {
-    robot.actuated_joint_names[0]: 100.0,  # carriage
-    robot.actuated_joint_names[1]: 50.0,   # cross_carriage  
-    robot.actuated_joint_names[2]: 90.0,   # eye
-    robot.actuated_joint_names[3]: 20.0    # spindle
+    robot.actuated_joint_names[0]: 100.0,              # carriage
+    robot.actuated_joint_names[1]: 50.0,               # cross_carriage
+    robot.actuated_joint_names[2]: np.radians(90.0),   # eye
+    robot.actuated_joint_names[3]: np.radians(20.0)    # spindle
 }
 robot.update_cfg(joint_values_dict)
 

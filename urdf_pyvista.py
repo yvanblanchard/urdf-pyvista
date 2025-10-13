@@ -1217,8 +1217,8 @@ class URDF:
         if self.num_actuated_joints > 0 and sliders:
             print(f"Adding sliders for {self.num_actuated_joints} actuated joints:")
             
-            # Store current joint values
-            current_joint_values = [0.0] * self.num_actuated_joints
+            # Store current joint values - use existing configuration if available
+            current_joint_values = list(self.cfg.copy())  # Copy current configuration
             slider_widgets = []  # Store slider widget references for reset functionality
             
             # Create sliders for each actuated joint
@@ -1246,16 +1246,11 @@ class URDF:
                     lower_limit_display = lower_limit
                     upper_limit_display = upper_limit
                 
-                # Start at middle of range or 0 if 0 is within range
-                if lower_limit <= 0 <= upper_limit:
-                    current_value = 0.0
-                else:
-                    current_value = (lower_limit + upper_limit) / 2.0
+                # Get current value from configuration
+                current_value = current_joint_values[i]
                 
                 # Convert current value to degrees for display if revolute
                 current_value_display = np.degrees(current_value) if is_revolute else current_value
-                
-                current_joint_values[i] = current_value
                 
                 # Calculate slider position (smaller sliders)
                 slider_y = slider_start_y - (i * slider_spacing)

@@ -65,7 +65,7 @@ When using `robot.show()`, the viewer provides:
 
 ```
 urdf_pyvista.py     # Main URDF parser and viewer
-urdf_test.py        # Sample loading test (using cartesian machine model URDF sample file)
+test_urdf_winder.py # Sample loading test (using cartesian winder machine model URDF sample file)
 README.md           # This file
 pyproject.toml      # Package configuration
 ```
@@ -77,7 +77,7 @@ pyproject.toml      # Package configuration
 import urdf_pyvista as up
 
 # Load and display a simple robot
-robot = up.URDF.load('winder_robot/winder_robot.urdf')
+robot = up.URDF.load('winder_machine/winder_machine.urdf')
 robot.show(color_by_link=True, sliders=True)
 ```
 
